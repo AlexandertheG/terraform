@@ -77,7 +77,7 @@ variable "base_count" {
 }
 
 variable "init_cluster_state" {
-  description = "Initial etcd cluster state"
+  description = "Initial etcd cluster state: for a new cluster, set to new; existing otherwise"
 }
 
 variable "sdb_size" {
