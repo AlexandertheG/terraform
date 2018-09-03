@@ -1,0 +1,9 @@
+- hosts: all
+  roles:
+    - { role: k_master, tags: 'k_master' }
+    - { role: ssh, tags: 'ssh' }
+  vars_files:
+    - vars/k_master/secrets.yml
+    - vars/k_master/vars.yml
+  handlers:
+    - include: handlers/handlers.yml

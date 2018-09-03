@@ -1,0 +1,7 @@
+KUBE_LOGTOSTDERR="--logtostderr=true"
+
+# journal message level, 0 is debug
+KUBE_LOG_LEVEL="--v=0"
+
+KUBE_MASTER="--master={{KUBE_MASTER | join(' --master=')}}"
+KUBE_ALLOW_PRIV="--allow-privileged=true"

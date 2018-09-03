@@ -1,0 +1,39 @@
+- name: create groups
+  group: name="{{item}}" state=present
+  with_items:
+    - ops
+    - dev
+
+- name: create users
+  user:
+    name: "{{item['user']['name']}}"
+    groups: "{{item['user']['group']}}"
+    password: "{{item['user']['pass']}}"
+    update_password: "{{item['user']['update_pass']}}"
+    state: "{{item['user']['state']}}"
+    shell: /bin/bash
+  with_items: "{{users}}"
+
+- name: copy ssh pub keys
+  authorized_key:
+    user: "{{item['user']['name']}}"
+    key: "{{item['user']['pub_key']}}"
+    state: "{{item['user']['state']}}"
+    exclusive: yes
+  with_items: "{{users}}"
+
+- name: copy sudoers file to remote host
+  template:
+    src: "templates/sudoers.j2"
+    dest: /etc/sudoers
+    owner: root
+    group: root
+    mode: 0440
+
+- name: set root password
+  user:
+    name: root
+    password: "<root_pass_hash>"
+
+- name: reload ssh
+  systemd: name=sshd state=restarted

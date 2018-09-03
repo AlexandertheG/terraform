@@ -1,0 +1,1 @@
+KUBE_CONTROLLER_MANAGER_ARGS="--leader-elect=true --service-account-private-key-file=/etc/kubernetes/tls/kubelet-client-key.pem --cluster-signing-cert-file=/etc/kubernetes/tls/ca.pem --cluster-signing-key-file=/etc/kubernetes/tls/ca-key.pem --root-ca-file=/etc/kubernetes/tls/ca.pem --kubeconfig=/etc/kubernetes/kubeconfig"

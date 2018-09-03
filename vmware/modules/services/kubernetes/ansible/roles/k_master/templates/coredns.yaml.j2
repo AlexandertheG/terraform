@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health
+        kubernetes cluster.local 100.10.0.0/16
+        proxy . /etc/coredns/core-resolv.conf
+        cache 30
+    }
+  core-resolv: |
+    search company.local
+{% for dns_srv in dns_server_list %}
+{{'    '}}nameserver {{dns_srv}}
+{% endfor %}
+#log stdout
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: coredns
+  namespace: kube-system
+  labels:
+    k8s-app: coredns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "CoreDNS"
+spec:
+  selector:
+    matchLabels:
+      k8s-app: coredns
+  template:
+    metadata:
+      labels:
+        k8s-app: coredns
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
+    spec:
+      containers:
+      - name: coredns
+        image: coredns/coredns:latest
+        imagePullPolicy: Always
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        env:
+#        - name: KUBECONFIG
+#          value: /var/lib/kubelet/kubeconfig
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+        - name: kubeconfig
+          mountPath: "/var/lib/kubelet/"
+          readOnly: true
+        - name: kubetls
+          mountPath: "/etc/kubernetes/tls/"
+          readOnly: true
+        - name: resolv
+          mountPath: "/etc/resolv.conf"
+          readOnly: true
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 7
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+      dnsPolicy: Default
+      volumes:
+        - name: "resolv"
+          hostPath:
+            path: "/etc/resolv.conf"
+        - name: config-volume
+          configMap:
+            name: coredns
+            items:
+            - key: Corefile
+              path: Corefile
+            - key: core-resolv
+              path: core-resolv.conf
+        - name: "kubeconfig"
+          hostPath:
+            path: "/var/lib/kubelet/"
+        - name: "kubetls"
+          hostPath:
+            path: "/etc/kubernetes/tls/"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  labels:
+    k8s-app: coredns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "CoreDNS"
+spec:
+  selector:
+    k8s-app: coredns
+  clusterIP: 100.10.0.53
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP

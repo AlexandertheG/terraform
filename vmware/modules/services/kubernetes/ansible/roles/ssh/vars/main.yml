@@ -1,0 +1,8 @@
+users:
+  - user:
+      name: "me"
+      group: "wheel,ops"
+      pass: "<pass_hash>"
+      update_pass: "on_create"
+      state: "present"
+      pub_key: "<ssh-rsa_pub_key>"

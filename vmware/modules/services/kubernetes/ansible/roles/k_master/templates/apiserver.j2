@@ -1,0 +1,7 @@
+KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota"
+KUBE_API_ADDRESS="--secure-port=443 --insecure-bind-address=127.0.0.1 --insecure-port=8082"
+# Comma separated list of nodes in the etcd cluster
+KUBE_ETCD_SERVERS="--etcd-servers={{ETCD_SERVERS}}"
+# Address range to use for services
+KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=100.10.0.0/16"
+KUBE_API_ARGS="--apiserver-count={{APISERVER_COUNT}} --service-account-key-file=/etc/kubernetes/tls/kubelet-client-key.pem --client-ca-file=/etc/kubernetes/tls/ca.pem --tls-cert-file=/etc/kubernetes/tls/kube-apiserver-server.pem --tls-private-key-file=/etc/kubernetes/tls/kube-apiserver-server-key.pem --etcd-cafile /etc/kubernetes/tls/ca.pem --allow_privileged --service-node-port-range=1999-39999"

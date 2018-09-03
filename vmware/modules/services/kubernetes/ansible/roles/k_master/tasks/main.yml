@@ -1,0 +1,337 @@
+- name: install system containers for kube-apiserver kube-scheduler kube-controller-manager kubelet kube-proxy
+  shell: "atomic install --system --system-package=no --name kube-{{item}} registry.centos.org/centos/kubernetes-{{item}}:latest"
+  with_items:
+    - apiserver
+    - scheduler
+    - controller-manager
+    - kubelet
+    - kube-proxy
+
+- name: copy docker-storage-setup
+  template:
+    src: "templates/docker-storage-setup.j2"
+    dest: /etc/sysconfig/docker-storage-setup
+    owner: root
+    group: root
+    mode: 0644
+
+- name: remove /etc/sysconfig/docker-storage
+  file:
+    path: /etc/sysconfig/docker-storage
+    state: absent
+
+- name: remove /var/lib/docker
+  file:
+    path: /var/lib/docker
+    state: absent
+
+- name: execute docker-storage-setup
+  shell: docker-storage-setup
+
+- name: extend /dev/dockervg/docker-pool w/ 100% of free space
+  lvol:
+    vg: dockervg
+    lv: docker-pool
+    size: +100%FREE
+
+- name: copy docker config file
+  template:
+    src: "templates/docker.j2"
+    dest: /etc/sysconfig/docker
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy key.json
+  template:
+    src: "templates/docker_key.json.j2"
+    dest: /etc/docker/key.json
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy kubeconfig
+  template:
+    src: "templates/kubeconfig.j2"
+    dest: "{{item}}/kubeconfig"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - /etc/kubernetes
+    - /var/lib/kubelet
+
+- name: copy config to /etc/kubernetes/config
+  template:
+    src: "templates/config.j2"
+    dest: /etc/kubernetes/config
+    owner: root
+    group: root
+    mode: 0644
+
+- name: create dir /root/.kube
+  file:
+    path: /root/.kube
+    state: directory
+    owner: root
+    group: root
+    mode: 0777
+
+- name: copy kubeconfig to /root/.kube/config
+  template:
+    src: "templates/kubeconfig.j2"
+    dest: /root/.kube/config
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy apiserver
+  template:
+    src: templates/apiserver.j2
+    dest: /etc/kubernetes/apiserver
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy controller-manager
+  template:
+    src: templates/controller-manager.j2
+    dest: /etc/kubernetes/controller-manager
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy proxy
+  template:
+    src: "templates/proxy.j2"
+    dest: /etc/kubernetes/proxy
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy scheduler
+  template:
+    src: templates/scheduler.j2
+    dest: /etc/kubernetes/scheduler
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy kubelet
+  template:
+    src: "templates/kubelet.j2"
+    dest: /etc/kubernetes/kubelet
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy flanneld
+  template:
+    src: "templates/flanneld.j2"
+    dest: /etc/sysconfig/flanneld
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy flanneld-conf.json
+  template:
+    src: templates/flanneld-conf.json.j2
+    dest: /etc/sysconfig/flanneld-conf.json
+    owner: root
+    group: root
+    mode: 0644
+
+- name: create /etc/kubernetes/tls
+  file:
+    path: /etc/kubernetes/tls
+    state: directory
+    mode: 0755
+
+- name: copy certs to /etc/kubernetes/tls
+  copy:
+    src: "files/certs/{{item}}"
+    dest: /etc/kubernetes/tls
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - ca-users.pem
+    - ca.pem
+    - etcd-peer.pem
+    - etcd.pem
+    - kube-apiserver-server.pem
+    - kube-proxy-client.pem
+    - kubelet-client.pem
+    - kubernetes-admin-user.pem
+
+- name: copy ca.pem to /etc/pki/ca-trust/source/anchors
+  copy:
+    src: "{{playbook_dir}}/files/{{region}}/{{env}}/certs/ca.pem"
+    dest: /etc/pki/ca-trust/source/anchors
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - update-ca-trust
+
+- name: force all notified handlers to run
+  meta: flush_handlers
+
+- name: touch key pem files in /etc/kubernetes/tls
+  file:
+    path: "/etc/kubernetes/tls/{{item}}"
+    state: touch
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - ca-key.pem
+    - ca-users-key.pem
+    - etcd-peer-key.pem
+    - etcd-key.pem
+    - kube-apiserver-server-key.pem
+    - kube-proxy-client-key.pem
+    - kubelet-client-key.pem
+    - kubernetes-admin-user-key.pem
+
+- name: insert ca key into /etc/kubernetes/tls/ca-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/ca-key.pem
+    line: "{{ca_key}}"
+    state: present
+
+- name: insert ca-users-key into /etc/kubernetes/tls/ca-users-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/ca-users-key.pem
+    line: "{{ca_users_key}}"
+    state: present
+
+- name: insert etcd-peer-key into /etc/kubernetes/tls/etcd-peer-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/etcd-peer-key.pem
+    line: "{{etcd_peer_key}}"
+    state: present
+
+- name: insert etcd-key into /etc/kubernetes/tls/etcd-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/etcd-key.pem
+    line: "{{etcd_key}}"
+    state: present
+
+- name: insert kubelet-client-key user key into /etc/kubernetes/tls/kubelet-client-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/kubelet-client-key.pem
+    line: "{{kubelet_client_key}}"
+    state: present
+
+- name: insert kube-apiserver-server-key user key into /etc/kubernetes/tls/kube-apiserver-server-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/kube-apiserver-server-key.pem
+    line: "{{kube_apiserver_server_key}}"
+    state: present
+
+- name: insert kube-proxy-client-key user key into /etc/kubernetes/tls/kube-proxy-client-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/kube-proxy-client-key.pem
+    line: "{{kube_proxy_client_key}}"
+    state: present
+
+- name: insert kubernetes-admin-user-key into /etc/kubernetes/tls/kubernetes-admin-user-key.pem
+  lineinfile:
+    path: /etc/kubernetes/tls/kubernetes-admin-user-key.pem
+    line: "{{kubernetes_admin_user_key}}"
+    state: present
+
+- name: disable and stop iptables
+  systemd: name=iptables enabled=no state=stopped
+
+- name: copy etcd.conf
+  template:
+    src: templates/etcd.conf.j2
+    dest: /etc/etcd/etcd.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: remove this member from the cluster
+  shell: etcdctl --endpoints "{{ETCD_SERVERS}}" member list|grep "{{ansible_hostname}}"|awk '{print $1}'|cut -d':' -f1|xargs -I {} etcdctl --endpoints "{{ETCD_SERVERS}}" member remove {}
+  when: (ETCD_INITIAL_CLUSTER_STATE == 'existing')
+  ignore_errors: yes
+
+- name: add etcd member to cluster
+  shell: "etcdctl --endpoints '{{ETCD_SERVERS}}' member add {{ETCD_NAME}}_{{k_count}} https://{{ansible_hostname}}.{{domain}}:2380"
+  when: (ETCD_INITIAL_CLUSTER_STATE == 'existing')
+  ignore_errors: yes
+
+- name: enable and start etcd
+  systemd: name=etcd enabled=yes state=restarted
+
+- name: wait for port 2380 to open before continuing
+  wait_for:
+    port: 2380
+    host: "{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}"
+    timeout: 180
+    connect_timeout: 2
+
+- name: import flanneld config to etcd
+  shell: curl -k -L https://localhost:2379/v2/keys/atomic.io/network/config -XPUT --data-urlencode value@/etc/sysconfig/flanneld-conf.json
+
+- name: enable and start remaining services
+  systemd: name={{item}} enabled=yes state=restarted
+  with_items:
+    - flanneld
+    - docker
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+    - kubelet
+    - kube-proxy
+
+- name: label the master node
+  block:
+    - shell: hostname
+      register: k_node_hostname
+      when: k_node_label is defined
+    - shell: "nd_list=''; echo $nd_list|grep {{k_node_hostname.stdout}}; while [ $? -ne 0 ]; do nd_list=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); echo $nd_list|grep {{k_node_hostname.stdout}}; done"
+      when: k_node_label is defined
+    - shell: "kubectl label nodes {{k_node_hostname.stdout}} nodetype={{k_node_label}}"
+      when: k_node_label is defined
+      ignore_errors: yes
+
+- name: copy namespace yaml files
+  template:
+    src: templates/namespace.yaml.j2
+    dest: "/etc/kubernetes/namespace-{{item}}.yaml"
+    owner: root
+    group: root
+    mode: 0644
+  with_items: "{{namespace_list}}"
+
+- name: copy coredns.yaml
+  template:
+    src: "templates/coredns.yaml.j2"
+    dest: /etc/kubernetes/coredns.yaml
+    owner: root
+    group: root
+    mode: 0644
+
+- name: copy kubernetes-dashboard.yaml
+  template:
+    src: "templates/kubernetes-dashboard.yaml.j2"
+    dest: /etc/kubernetes/kubernetes-dashboard.yaml
+    owner: root
+    group: root
+    mode: 0644
+
+- name: create namespaces
+  shell: "kubectl apply -f /etc/kubernetes/namespace-{{item}}.yaml"
+  with_items: "{{namespace_list}}"
+  ignore_errors: yes
+
+- name: kubectl apply -f /etc/kubernetes/coredns.yaml
+  shell: kubectl apply -f /etc/kubernetes/coredns.yaml
+  ignore_errors: yes
+
+- name: kubectl apply -f /etc/kubernetes/kubernetes-dashboard.yaml
+  shell: kubectl apply -f /etc/kubernetes/kubernetes-dashboard.yaml
+  ignore_errors: yes

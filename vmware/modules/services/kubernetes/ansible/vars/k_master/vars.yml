@@ -1,0 +1,18 @@
+k8s_namespace: <your_namespace>
+KUBE_MASTER: ["https://k-master1.company.local/", "https://k-master2.company.local/", "https://k-master3.company.local/"]
+KUBELET_API_SERVER: https://k-master1.company.local/,https://k-master2.company.local/,https://k-master3.company.local/
+ETCD_NAME: <etcd_cluster_name>
+ETCD_SERVERS: https://k-master1.company.local:2379,https://k-master2.company.local:2379,https://k-master3.company.local:2379
+ETCD_INITIAL_CLUSTER_STATE: "{{init_cluster_state | default('new')}}"
+cluster_name: <cluster_name>
+context_user: <context_user>
+context_name: <context_name>
+ETCD_INITIAL_CLUSTER: "{{ETCD_NAME}}_0=https://k-master1.company.local:2380,{{ETCD_NAME}}_1=https://k-master2.company.local:2380,{{ETCD_NAME}}_2=https://k-master3.company.local:2380"
+APISERVER_COUNT: 3
+domain: company.local
+namespace_list: ["{{k8s_namespace}}", "kube-system"]
+
+KUBE_PROXY_ARGS: "--kubeconfig=/etc/kubernetes/kubeconfig"
+KUBE_SCHEDULER_ARGS: "{{KUBE_PROXY_ARGS}}"
+KUBELET_ARGS: '--cluster-dns=100.10.0.53 --cluster-domain=cluster.local {{KUBE_PROXY_ARGS}} --tls-private-key-file=/etc/kubernetes/tls/kubelet-client-key.pem --tls-cert-file=/etc/kubernetes/tls/kubelet-client.pem --client-ca-file=/etc/kubernetes/tls/ca.pem --resolv-conf=""'
+k_node_label: "worker"

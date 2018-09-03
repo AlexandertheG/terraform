@@ -1,0 +1,11 @@
+{% for i in registry_keys%}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{i['key']['name']}}
+  namespace: {{i['key']['namespace']}}
+data:
+  .{{i['key']['type']}}: {{i['key']['config']}}
+type: kubernetes.io/{{i['key']['type']}}
+{%- if not loop.last %}{{'\n'}}---{% endif -%}{{''}}
+{% endfor %}
